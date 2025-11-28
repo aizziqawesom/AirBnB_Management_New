@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
+  async redirects() {
+    return [
+      {
+        source: "/protected",
+        destination: "/dashboard",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

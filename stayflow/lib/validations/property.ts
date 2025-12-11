@@ -2,9 +2,7 @@ import { z } from 'zod';
 
 export const propertySchema = z.object({
   name: z.string().min(1, 'Property name is required').max(100, 'Name is too long'),
-  type: z.enum(['Studio', '1BR Apartment', '2BR Apartment', '3BR Apartment', 'Villa'], {
-    required_error: 'Property type is required',
-  }),
+  type: z.enum(['Studio', '1BR Apartment', '2BR Apartment', '3BR Apartment', 'Villa']).nullable(),
   capacity: z.number()
     .int('Capacity must be a whole number')
     .min(1, 'Capacity must be at least 1')

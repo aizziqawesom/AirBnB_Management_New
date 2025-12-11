@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
 interface EditPropertyPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditPropertyPage({ params }: EditPropertyPageProps) {
-  const property = await getProperty(params.id);
+  const { id } = await params;
+  const property = await getProperty(id);
 
   if (!property) {
     notFound();
@@ -34,7 +35,7 @@ export default async function EditPropertyPage({ params }: EditPropertyPageProps
         propertyId={property.id}
         initialValues={{
           name: property.name,
-          type: property.type || undefined,
+          type: property.type,
           capacity: property.capacity,
           price_per_night: property.price_per_night,
           amenities: property.amenities,

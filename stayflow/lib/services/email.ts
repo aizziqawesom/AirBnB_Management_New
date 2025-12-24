@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { ReactElement } from 'react';
 
 // Initialize Resend client
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -6,7 +7,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export interface SendEmailParams {
   to: string;
   subject: string;
-  html: string;
+  html?: string;
+  react?: ReactElement;
   from?: string;
 }
 
@@ -18,13 +20,14 @@ export interface SendEmailResult {
 
 /**
  * Send an email using Resend API
- * @param params - Email parameters (to, subject, html content)
+ * @param params - Email parameters (to, subject, html or react content)
  * @returns Result object with success status and message ID or error
  */
 export async function sendEmail({
   to,
   subject,
   html,
+  react,
   from,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
@@ -37,21 +40,29 @@ export async function sendEmail({
       };
     }
 
-    if (!process.env.RESEND_FROM_EMAIL && !from) {
-      console.error('RESEND_FROM_EMAIL is not configured');
+    // Use default from address for testing with Resend's domain
+    const fromAddress = from || 'StayFlow <onboarding@resend.dev>';
+
+    // Send email via Resend
+    const emailData: any = {
+      from: fromAddress,
+      to: [to],
+      subject,
+    };
+
+    // Use React template if provided, otherwise use HTML
+    if (react) {
+      emailData.react = react;
+    } else if (html) {
+      emailData.html = html;
+    } else {
       return {
         success: false,
-        error: 'Email sender address is not configured',
+        error: 'Either html or react content must be provided',
       };
     }
 
-    // Send email via Resend
-    const { data, error } = await resend.emails.send({
-      from: from || process.env.RESEND_FROM_EMAIL!,
-      to: [to],
-      subject,
-      html,
-    });
+    const { data, error } = await resend.emails.send(emailData);
 
     if (error) {
       console.error('Resend API error:', error);

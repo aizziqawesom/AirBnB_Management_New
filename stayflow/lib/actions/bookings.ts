@@ -27,12 +27,14 @@ export async function createBooking(data: BookingFormValues) {
   }
 
   // Check for booking conflicts
+  // Two bookings overlap if: (new_start < existing_end) AND (new_end > existing_start)
   const { data: conflicts, error: conflictError } = await supabase
     .from('bookings')
     .select('id')
     .eq('property_id', validatedFields.data.property_id)
     .neq('status', 'cancelled')
-    .or(`check_in.lte.${validatedFields.data.check_out},check_out.gte.${validatedFields.data.check_in}`);
+    .lt('check_in', validatedFields.data.check_out)
+    .gt('check_out', validatedFields.data.check_in);
 
   if (conflictError) {
     console.error('Error checking booking conflicts:', conflictError);
@@ -114,13 +116,15 @@ export async function updateBooking(id: string, data: BookingFormValues) {
   }
 
   // Check for booking conflicts (excluding current booking)
+  // Two bookings overlap if: (new_start < existing_end) AND (new_end > existing_start)
   const { data: conflicts, error: conflictError } = await supabase
     .from('bookings')
     .select('id')
     .eq('property_id', validatedFields.data.property_id)
     .neq('id', id)
     .neq('status', 'cancelled')
-    .or(`check_in.lte.${validatedFields.data.check_out},check_out.gte.${validatedFields.data.check_in}`);
+    .lt('check_in', validatedFields.data.check_out)
+    .gt('check_out', validatedFields.data.check_in);
 
   if (conflictError) {
     console.error('Error checking booking conflicts:', conflictError);

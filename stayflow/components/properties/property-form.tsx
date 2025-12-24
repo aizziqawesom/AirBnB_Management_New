@@ -46,11 +46,11 @@ export function PropertyForm({ initialValues, mode = 'create', propertyId }: Pro
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
-  const form = useForm<PropertyFormValues>({
+  const form = useForm({
     resolver: zodResolver(propertySchema),
     defaultValues: {
       name: initialValues?.name || '',
-      type: initialValues?.type || undefined,
+      type: initialValues?.type || null,
       capacity: initialValues?.capacity || 1,
       price_per_night: initialValues?.price_per_night || 50,
       amenities: initialValues?.amenities || [],
@@ -123,7 +123,7 @@ export function PropertyForm({ initialValues, mode = 'create', propertyId }: Pro
                     <FormLabel>Property Type</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      defaultValue={field.value || undefined}
                       disabled={isSubmitting}
                     >
                       <FormControl>

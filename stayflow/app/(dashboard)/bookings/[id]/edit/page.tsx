@@ -42,6 +42,7 @@ export default async function EditBookingPage({ params }: EditBookingPageProps) 
         initialValues={{
           guest_name: booking.guest_name,
           phone: booking.phone,
+          guest_email: booking.guest_email || '',
           property_id: booking.property_id,
           check_in: booking.check_in,
           check_out: booking.check_out,

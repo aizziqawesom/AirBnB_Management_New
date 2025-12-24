@@ -58,8 +58,8 @@ function calculateTriggerTime(
   }
 
   // Set the specific time (HH:MM:SS)
-  const [hours, minutes, seconds = '0'] = sendTime.split(':').map(Number);
-  targetDate.setHours(hours, minutes, seconds || 0, 0);
+  const [hours, minutes, seconds = 0] = sendTime.split(':').map(Number);
+  targetDate.setHours(hours, minutes, seconds, 0);
 
   return targetDate;
 }

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Calendar, User, Phone, Users, DollarSign, MapPin, Package } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Phone, Mail, Users, DollarSign, MapPin, Package } from 'lucide-react';
 import { getBooking } from '@/lib/services/bookings';
 import { BookingActions } from '@/components/bookings/booking-actions';
 import { format } from 'date-fns';
@@ -95,6 +95,20 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
                 <p className="font-medium">{booking.phone}</p>
               </div>
             </div>
+            {booking.guest_email && (
+              <>
+                <Separator />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Mail className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-medium">{booking.guest_email}</p>
+                  </div>
+                </div>
+              </>
+            )}
             <Separator />
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">

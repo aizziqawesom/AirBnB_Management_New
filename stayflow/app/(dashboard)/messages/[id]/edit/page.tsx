@@ -44,6 +44,7 @@ export default function EditMessageTemplatePage({ params }: EditMessageTemplateP
     if (!resolvedParams) return;
 
     async function fetchTemplate() {
+      if (!resolvedParams) return;
       setIsLoading(true);
       const result = await getTemplate(resolvedParams.id);
 

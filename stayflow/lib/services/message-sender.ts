@@ -1,10 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from './email';
+import { BookingEmailTemplate } from '@/components/email/booking-email-template';
 import {
   extractTemplateVariables,
   replaceTemplateVariables,
-  templateToHtml,
   generateEmailSubject,
+  templateToHtml,
 } from './template-parser';
 import type { Booking } from '@/lib/types/booking';
 
@@ -103,7 +104,6 @@ export async function sendBookingMessage(
       template.message_content,
       variables
     );
-    const htmlBody = templateToHtml(messageBody);
     const subject = generateEmailSubject(
       template.name,
       booking as Booking & { properties: { name: string } }
@@ -135,11 +135,20 @@ export async function sendBookingMessage(
       };
     }
 
-    // 6. Send email via Resend
+    // 6. Send email via Resend using React template
     const emailResult = await sendEmail({
       to: booking.guest_email,
       subject,
-      html: htmlBody,
+      react: BookingEmailTemplate({
+        guestName: variables.guest_name,
+        propertyName: variables.property_name,
+        checkInDate: variables.check_in_date,
+        checkOutDate: variables.check_out_date,
+        bookingReference: variables.booking_reference,
+        totalPrice: variables.total_price,
+        numGuests: variables.num_guests,
+        status: variables.status,
+      }),
     });
 
     // 7. Update sent_messages record with result
@@ -158,7 +167,7 @@ export async function sendBookingMessage(
         organization_id: booking.organization_id,
         booking_id: bookingId,
         trigger_id: triggerId,
-        idempotency_key,
+        idempotency_key: idempotencyKey,
         sent_message_id: sentMessage.id,
       });
 

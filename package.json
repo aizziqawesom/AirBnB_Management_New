@@ -1,6 +1,9 @@
 {
   "dependencies": {
+    "@react-email/render": "^2.0.0",
     "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.86.0"
+    "@supabase/supabase-js": "^2.86.0",
+    "react-email": "^5.0.8",
+    "resend": "^6.6.0"
   }
 }

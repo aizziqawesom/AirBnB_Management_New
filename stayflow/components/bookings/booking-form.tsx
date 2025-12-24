@@ -159,6 +159,7 @@ export function BookingForm({ properties, mode = 'create', bookingId, initialVal
                         type="email"
                         placeholder="guest@example.com"
                         {...field}
+                        value={field.value || ''}
                         disabled={isSubmitting}
                       />
                     </FormControl>

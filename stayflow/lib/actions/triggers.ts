@@ -21,7 +21,7 @@ export async function createTrigger(formData: CreateTriggerData) {
     if (!validationResult.success) {
       return {
         success: false,
-        error: validationResult.error.errors[0]?.message || 'Validation failed',
+        error: validationResult.error.issues[0]?.message || 'Validation failed',
       };
     }
 

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Mail, Loader2 } from 'lucide-react';
 
-export default function TestEmailPage() {
+export function TestEmailTab() {
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
 
@@ -86,13 +86,6 @@ export default function TestEmailPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Test Email Sending</h1>
-        <p className="text-muted-foreground">
-          Send test emails to verify Resend integration
-        </p>
-      </div>
-
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>

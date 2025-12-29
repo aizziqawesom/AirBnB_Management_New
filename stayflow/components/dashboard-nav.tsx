@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   LogOut,
-  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,11 +62,6 @@ const navItems = [
     label: "Messages",
     href: "/messages",
     icon: MessageSquare,
-  },
-  {
-    label: "Test Email",
-    href: "/test-email",
-    icon: Mail,
   },
 ];
 

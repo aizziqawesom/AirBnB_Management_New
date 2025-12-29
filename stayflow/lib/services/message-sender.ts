@@ -84,7 +84,7 @@ export async function sendBookingMessage(
     // 3. Fetch message template
     const { data: template, error: templateError } = await supabase
       .from('message_templates')
-      .select('id, name, message_content')
+      .select('id, title, template')
       .eq('id', templateId)
       .single();
 
@@ -101,11 +101,11 @@ export async function sendBookingMessage(
       booking as Booking & { properties: { name: string } }
     );
     const messageBody = replaceTemplateVariables(
-      template.message_content,
+      template.template,
       variables
     );
     const subject = generateEmailSubject(
-      template.name,
+      template.title,
       booking as Booking & { properties: { name: string } }
     );
 

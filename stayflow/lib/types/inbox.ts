@@ -14,6 +14,7 @@ export interface BookingThread {
       id: string;
       name: string;
     } | null;
+    // ota_source?: 'direct' | 'airbnb' | 'booking_com' | 'agoda' | 'vrbo' | null; // TODO: Add to database schema
   };
   messages: SentMessageWithBooking[];
   latest_message_at: string;
@@ -26,6 +27,7 @@ export interface InboxFilters {
   date_from?: string;
   date_to?: string;
   status?: MessageStatus;
+  channel?: 'email' | 'whatsapp';
 }
 
 export interface InboxStats {

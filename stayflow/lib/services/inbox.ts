@@ -32,9 +32,8 @@ export async function getInboxThreads(
     .order('created_at', { ascending: false });
 
   // Apply filters
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
+  // Note: Status and channel filters are applied client-side after grouping
+  // This allows users to see complete conversation threads while filtering messages within them
 
   if (filters?.date_from) {
     query = query.gte('created_at', filters.date_from);
@@ -62,15 +61,24 @@ export async function getInboxThreads(
     if (!msg.booking_id) return; // Skip messages without booking
 
     if (!threadsMap.has(msg.booking_id)) {
+      const booking = msg.booking || {
+        id: msg.booking_id,
+        guest_name: 'Unknown Guest',
+        check_in: '',
+        check_out: '',
+        status: 'unknown',
+        property: null,
+      };
+
       threadsMap.set(msg.booking_id, {
         booking_id: msg.booking_id,
-        booking: msg.booking || {
-          id: msg.booking_id,
-          guest_name: 'Unknown Guest',
-          check_in: '',
-          check_out: '',
-          status: 'unknown',
-          property: null,
+        booking: {
+          id: booking.id,
+          guest_name: booking.guest_name,
+          check_in: booking.check_in,
+          check_out: booking.check_out,
+          status: booking.status,
+          property: booking.property ?? null,
         },
         messages: [],
         latest_message_at: msg.created_at,

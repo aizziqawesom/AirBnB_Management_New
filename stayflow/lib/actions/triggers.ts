@@ -37,6 +37,8 @@ export async function createTrigger(formData: CreateTriggerData) {
       template_id: data.template_id,
       trigger_type: data.trigger_type,
       is_active: true,
+      email_enabled: (data as any).email_enabled ?? true,
+      whatsapp_enabled: (data as any).whatsapp_enabled ?? false,
     };
 
     if (data.trigger_type === 'event') {
@@ -214,4 +216,121 @@ export async function deleteTrigger(id: string) {
 
 export async function toggleTrigger(id: string, isActive: boolean) {
   return updateTrigger(id, { is_active: isActive });
+}
+
+export async function getTriggerById(triggerId: string) {
+  try {
+    const supabase = await createClient();
+    const organization = await getCurrentOrganization(supabase);
+
+    if (!organization) {
+      return null;
+    }
+
+    const adminClient = createAdminClient();
+
+    const { data, error } = await adminClient
+      .from('message_triggers')
+      .select(`
+        *,
+        message_templates (
+          id,
+          title
+        ),
+        trigger_property_assignments (
+          property_id
+        )
+      `)
+      .eq('id', triggerId)
+      .eq('organization_id', organization.id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching trigger:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error fetching trigger:', error);
+    return null;
+  }
+}
+
+export async function updateTriggerFull(
+  triggerId: string,
+  data: Partial<{
+    name: string;
+    template_id: string;
+    email_enabled: boolean;
+    whatsapp_enabled: boolean;
+    is_active: boolean;
+    event_type: string;
+    time_offset_value: number;
+    time_offset_unit: string;
+    time_reference: string;
+    send_time: string;
+  }>,
+  propertyIds: string[]
+) {
+  try {
+    const supabase = await createClient();
+    const organization = await getCurrentOrganization(supabase);
+
+    if (!organization) {
+      return { success: false, error: 'No organization found' };
+    }
+
+    const adminClient = createAdminClient();
+
+    // Verify trigger belongs to organization
+    const { data: existingTrigger } = await adminClient
+      .from('message_triggers')
+      .select('id, organization_id')
+      .eq('id', triggerId)
+      .single();
+
+    if (!existingTrigger || existingTrigger.organization_id !== organization.id) {
+      return { success: false, error: 'Trigger not found' };
+    }
+
+    // Update trigger
+    const { error: updateError } = await adminClient
+      .from('message_triggers')
+      .update(data)
+      .eq('id', triggerId);
+
+    if (updateError) {
+      console.error('Error updating trigger:', updateError);
+      return { success: false, error: updateError.message };
+    }
+
+    // Update property assignments
+    // First delete existing assignments
+    await adminClient
+      .from('trigger_property_assignments')
+      .delete()
+      .eq('trigger_id', triggerId);
+
+    // Then insert new ones if provided
+    if (propertyIds.length > 0) {
+      const assignments = propertyIds.map(propertyId => ({
+        trigger_id: triggerId,
+        property_id: propertyId,
+      }));
+
+      await adminClient
+        .from('trigger_property_assignments')
+        .insert(assignments);
+    }
+
+    revalidatePath('/messages/triggers');
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error updating trigger:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
 }

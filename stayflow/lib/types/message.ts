@@ -6,6 +6,12 @@ export interface MessageTemplate {
   title: string;
   recipient: MessageRecipient;
   template: string;
+
+  // WhatsApp configuration
+  whatsapp_template_name?: string | null;  // Meta template name (e.g., 'booking_confirmation')
+  whatsapp_language_code?: string | null;   // e.g., 'en_US', 'ms_MY'
+  whatsapp_enabled?: boolean | null;        // Whether WhatsApp is enabled for this template
+
   created_at: string;
   updated_at: string;
 }

@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import type { InboxFilters } from '@/lib/types/inbox';
-import type { MessageStatus } from '@/lib/types/sent-message';
 
 interface InboxFiltersProps {
   properties: Array<{ id: string; name: string }>;
@@ -25,7 +24,7 @@ export function InboxFilters({ properties, onFiltersChange }: InboxFiltersProps)
 
   const updateFilter = (key: keyof InboxFilters, value: string | undefined) => {
     const newFilters = { ...filters };
-    if (value) {
+    if (value && value !== 'all') {
       newFilters[key] = value as any;
     } else {
       delete newFilters[key];
@@ -74,20 +73,20 @@ export function InboxFilters({ properties, onFiltersChange }: InboxFiltersProps)
       {isOpen && (
         <Card>
           <CardContent className="pt-6">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Property</label>
                 <Select
-                  value={filters.property_id || ''}
+                  value={filters.property_id || 'all'}
                   onValueChange={(value) =>
-                    updateFilter('property_id', value || undefined)
+                    updateFilter('property_id', value)
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All properties" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All properties</SelectItem>
+                    <SelectItem value="all">All properties</SelectItem>
                     {properties.map((property) => (
                       <SelectItem key={property.id} value={property.id}>
                         {property.name}
@@ -100,20 +99,39 @@ export function InboxFilters({ properties, onFiltersChange }: InboxFiltersProps)
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>
                 <Select
-                  value={filters.status || ''}
+                  value={filters.status || 'all'}
                   onValueChange={(value) =>
-                    updateFilter('status', value || undefined)
+                    updateFilter('status', value)
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     <SelectItem value="sent">Sent</SelectItem>
                     <SelectItem value="failed">Failed</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="bounced">Bounced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Channel</label>
+                <Select
+                  value={filters.channel || 'all'}
+                  onValueChange={(value) =>
+                    updateFilter('channel', value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All channels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All channels</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -124,10 +142,10 @@ export function InboxFilters({ properties, onFiltersChange }: InboxFiltersProps)
                   value={
                     filters.date_from
                       ? `${filters.date_from}_${filters.date_to}`
-                      : ''
+                      : 'all'
                   }
                   onValueChange={(value) => {
-                    if (!value) {
+                    if (!value || value === 'all') {
                       updateFilter('date_from', undefined);
                       updateFilter('date_to', undefined);
                     } else {
@@ -141,7 +159,7 @@ export function InboxFilters({ properties, onFiltersChange }: InboxFiltersProps)
                     <SelectValue placeholder="All time" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All time</SelectItem>
+                    <SelectItem value="all">All time</SelectItem>
                     <SelectItem
                       value={`${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}_${new Date().toISOString()}`}
                     >

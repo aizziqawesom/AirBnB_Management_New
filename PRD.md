@@ -784,10 +784,22 @@ Returns stats: processed, sent, failed, skipped
 - Stats cards: Total, sent, failed, pending
 - Filter by booking, status, date range
 
-**Unified Inbox:**
-- `/messages` - Groups sent messages by booking (thread view)
-- Shows message count and latest message per booking
-- Expandable threads to see all messages for a booking
+**Unified Inbox (Guesty-Style Two-Column Layout):**
+- `/messages` - Two-column interface: conversation list (left) + chat view (right)
+- **Left Column**: Conversation list grouped by booking
+  - Channel avatar circles (blue for Email, green for WhatsApp)
+  - Guest name, property, dates, message preview
+  - Channel badges showing Email/WhatsApp status
+  - Message count and failed message indicators
+  - Click to select conversation
+- **Right Column**: Chat-style message view
+  - Full conversation thread for selected booking
+  - Message bubbles with content, channel badge at bottom
+  - Hover info button (ⓘ) showing detailed message metadata
+  - Channel icons (Mail/MessageCircle) for each message
+- **Multi-channel filtering**: Filter by Email, WhatsApp, or both
+- **Client-side filtering**: Status and channel filters applied after grouping
+- Shows complete conversation threads with filtered messages inside
 
 #### 8. Error Handling
 
@@ -888,6 +900,318 @@ Idempotency record created (prevents duplicate on next cron run)
 5. **RLS Security** - Multi-tenant data isolation
 6. **Graceful Error Handling** - Failures logged, don't block other messages
 7. **Template Variable System** - Dynamic content without manual work
+
+---
+
+## Unified Inbox: Guesty-Style Implementation
+
+### Overview
+The unified inbox provides a modern, Guesty-inspired two-column interface for viewing and managing all guest communication across Email and WhatsApp channels. Messages are grouped by booking into conversation threads, with powerful filtering and a clean chat-style interface.
+
+### Architecture
+
+#### Two-Column Layout
+**Left Column (384px fixed width):**
+- Scrollable conversation list
+- Each conversation card shows booking information
+- Selected conversation highlighted with primary color border
+- Failed messages indicated with red left border
+
+**Right Column (Flexible width):**
+- Chat header with booking details
+- Scrollable message thread
+- Message bubbles with channel badges
+- Empty state when no conversation selected
+
+#### Component Structure
+```
+app/(dashboard)/messages/page.tsx
+├── InboxHeader (stats)
+├── InboxFilters (4 filters: Property, Status, Channel, Date)
+└── Two-column container
+    ├── InboxConversationList (left)
+    └── InboxChatView (right)
+```
+
+#### Files Created/Modified (January 2, 2026)
+**New Components:**
+- `components/inbox/inbox-conversation-list.tsx` - Left column conversation cards
+- `components/inbox/inbox-chat-view.tsx` - Right column chat interface
+- `components/ui/popover.tsx` - Popover component for info button (shadcn/ui)
+
+**Modified Components:**
+- `components/inbox/inbox-thread-list.tsx` - Added client-side filtering with useMemo
+- `components/inbox/inbox-thread-card.tsx` - Updated to new two-column design
+- `components/inbox/inbox-filters.tsx` - Added Channel filter (4th column)
+- `app/(dashboard)/messages/page.tsx` - Implemented two-column layout with state management
+
+**Modified Services:**
+- `lib/services/inbox.ts` - Removed status filter from DB query, added ota_source to query
+- `lib/types/inbox.ts` - Added `channel` and `ota_source` to types
+
+### Key Features
+
+#### 1. Multi-Channel Support
+**Channel Indicators:**
+- Email: Blue badges and icons (`bg-blue-50 text-blue-700`)
+- WhatsApp: Green badges and icons (`bg-green-50 text-green-700`)
+- Avatar circles in conversation list show primary channel
+- Each message shows channel badge at bottom
+
+**Channel Filtering:**
+- Filter dropdown: All channels | Email | WhatsApp
+- Client-side filtering preserves complete threads
+- Channel badges update based on active filters
+
+#### 2. Client-Side Filtering Architecture
+**Problem Solved:**
+- Previous implementation filtered at database level before grouping
+- Result: Incomplete threads when filtering by status
+- Users couldn't see full conversation context
+
+**New Solution:**
+```typescript
+// Fetch all messages from database
+const threads = await getInboxThreads(filters);
+
+// Apply status and channel filters client-side
+const filteredThreads = threads.map(thread => {
+  let filteredMessages = thread.messages;
+
+  if (filters.status) {
+    filteredMessages = filteredMessages.filter(msg => msg.status === filters.status);
+  }
+
+  if (filters.channel) {
+    filteredMessages = filteredMessages.filter(msg => msg.channel === filters.channel);
+  }
+
+  if (filteredMessages.length === 0) return null;
+
+  return { ...thread, messages: filteredMessages, ... };
+}).filter(Boolean);
+```
+
+**Benefits:**
+- Complete conversation threads preserved
+- Filter within threads, don't filter threads out
+- Better user experience - full context always visible
+- Property and date filters still applied at database level for performance
+
+#### 3. Message Details Popover
+**Hover Info Button:**
+- Info icon (ⓘ) appears on hover over each message
+- Click to show popover with metadata:
+  - Recipient email/phone
+  - Message status (sent, failed, bounced, pending)
+  - Sent timestamp (formatted: "Jan 1, 2026 10:30 AM")
+  - Trigger type (Event-Based or Time-Based)
+  - Provider message ID
+  - Error details (if failed)
+  - Retry count
+
+**Implementation:**
+- Uses shadcn/ui Popover component
+- Popover content width: 320px (w-80)
+- Aligned to message end (align="end")
+- Dismissible by clicking outside
+
+#### 4. Visual Design Elements
+**Guesty-Inspired Styling:**
+- Clean, minimalist design
+- Proper spacing and typography hierarchy
+- Hover states for interactivity
+- Color-coded channel indicators
+- Professional card-based layout
+
+**Status Indicators:**
+- Failed messages: Red left border (border-l-4 border-l-red-500)
+- Failed count badge: Red destructive variant
+- Success states: Subtle green tones
+- Pending states: Yellow warning colors
+
+#### 5. State Management
+**Selection State:**
+- Auto-select first conversation on load
+- Preserve selection when applying filters
+- Clear selection if selected thread filtered out
+- Re-select first available thread automatically
+
+**Filter State:**
+```typescript
+const [filters, setFilters] = useState<InboxFiltersType>({});
+const [threads, setThreads] = useState<BookingThread[]>([]);
+const [filteredThreads, setFilteredThreads] = useState<BookingThread[]>([]);
+const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+```
+
+### User Experience Flows
+
+#### Viewing Messages
+1. User lands on `/messages` page
+2. Inbox loads all conversations (server fetch)
+3. First conversation auto-selected
+4. Chat view shows messages for selected booking
+5. User can click different conversations to switch
+
+#### Filtering Messages
+1. User clicks "Filters" button
+2. Expands filter panel (4 dropdowns)
+3. Selects filter (e.g., "Failed" status)
+4. Client-side filtering updates conversation list
+5. Only shows threads with failed messages
+6. Chat view updates to show only failed messages in thread
+7. Full conversation context preserved
+
+#### Viewing Message Details
+1. User hovers over message bubble
+2. Info icon (ⓘ) appears
+3. User clicks info icon
+4. Popover shows detailed metadata
+5. User reads error details, message ID, etc.
+6. Click outside to dismiss popover
+
+### Technical Implementation Details
+
+#### Database Query Optimization
+**Before:**
+```typescript
+// Bad: Filter at database level
+if (filters?.status) {
+  query = query.eq('status', filters.status); // Breaks threading
+}
+```
+
+**After:**
+```typescript
+// Good: Filter client-side after grouping
+// Note: Status and channel filters are applied client-side after grouping
+// This allows users to see complete conversation threads while filtering messages within them
+
+if (filters?.date_from) {
+  query = query.gte('created_at', filters.date_from); // Database filter OK (performance)
+}
+```
+
+**Query Structure:**
+```sql
+SELECT *,
+  booking:bookings(
+    id, guest_name, check_in, check_out, status,
+    property:properties(id, name),
+    ota_source  -- NEW: Added for OTA badges
+  ),
+  template:message_templates(id, title),
+  trigger:message_triggers(id, trigger_type)
+FROM sent_messages
+ORDER BY created_at DESC
+```
+
+#### Type Safety Enhancements
+**Added to InboxFilters interface:**
+```typescript
+export interface InboxFilters {
+  property_id?: string;
+  date_from?: string;
+  date_to?: string;
+  status?: MessageStatus;
+  channel?: 'email' | 'whatsapp'; // NEW
+}
+```
+
+**Added to BookingThread interface:**
+```typescript
+booking: {
+  id: string;
+  guest_name: string;
+  check_in: string;
+  check_out: string;
+  status: string;
+  property: { id: string; name: string; } | null;
+  ota_source?: 'direct' | 'airbnb' | 'booking_com' | 'agoda' | 'vrbo' | null; // NEW
+};
+```
+
+#### Performance Considerations
+- **Database filters**: Property, date range (reduce data transferred)
+- **Client filters**: Status, channel (preserve thread integrity)
+- **Memoization**: useMemo for filtered threads (avoid recalculation)
+- **Lazy loading**: Messages loaded on-demand per conversation
+- **Fixed left column**: Prevents layout shift during scrolling
+
+#### 6. Chat-Style Message Interface (January 2, 2026)
+
+**Chat View Enhancements:**
+- **Message Bubbles**: Clean chat-style bubbles with white background (85% max width)
+- **Channel Avatars**: Circular avatar icons for each message (blue for Email, green for WhatsApp)
+- **Improved Layout**: Subject + timestamp on top, message body in bubble, channel badge below
+- **Guest Avatar**: Header shows guest initials in circular avatar
+- **Icon Actions**: Email and WhatsApp icons in header for quick access
+
+**Message Input Box (Placeholder - Non-functional):**
+- **Textarea**: Large text input area for composing messages (disabled)
+- **Channel Selector**: Dropdown to choose Email or WhatsApp (disabled)
+- **Template Selector**: Dropdown to select message templates (disabled)
+- **Attachment & Send Buttons**: Icons for attachments and sending (disabled)
+- **Coming Soon Notice**: "(Message sending coming soon)" indicator
+- **Fixed Bottom Position**: Input box stays at bottom of chat view
+
+**Purpose:**
+The message input interface provides visual context for the future two-way messaging feature. While currently non-functional (all inputs disabled), it demonstrates the planned UX where users will be able to reply to guests directly from the inbox.
+
+**Implementation Details:**
+```typescript
+// Components/inbox/inbox-chat-view.tsx
+- Added useState for messageText, selectedChannel, selectedTemplate
+- Message bubbles use max-w-[85%] for better readability
+- Channel avatars show Mail or MessageCircle icons
+- Input box positioned with flex-shrink-0 to stay at bottom
+- All inputs have disabled prop for placeholder state
+```
+
+**Visual Hierarchy:**
+1. **Header**: Fixed top with guest info and action icons
+2. **Messages**: Scrollable middle area with chat bubbles
+3. **Input**: Fixed bottom with compose interface
+
+### Future Enhancements
+
+**Phase 2 (Planned):**
+- Real-time message updates (WebSocket or polling)
+- Mark messages as read/unread
+- **Enable reply functionality** (activate message input box)
+- Search within conversations
+- Bulk actions (mark multiple as read, delete, etc.)
+
+**Phase 3 (Planned):**
+- Incoming message support (two-way messaging)
+- WhatsApp template quick replies
+- Message drafts
+- Conversation tags/labels
+- Archived conversations
+- File attachments in messages
+
+### Testing Checklist
+- [x] Property filter works (filters threads by property)
+- [x] Status filter works (shows only messages with that status in threads)
+- [x] Channel filter works (shows only Email or WhatsApp messages)
+- [x] Date range filter works (filters by sent date)
+- [x] All filters can be combined
+- [x] Clear filters button resets all filters
+- [x] Channel badges appear on all messages
+- [x] Failed messages show red indicator bar
+- [x] Info button shows message details in popover
+- [x] Empty state shows when no messages match filters
+- [x] Thread message counts update correctly
+- [x] Auto-select first conversation on load
+- [x] Selection persists across filter changes
+- [x] Two-column layout responsive and scrollable
+- [x] Chat-style message bubbles display correctly
+- [x] Channel avatars show for each message
+- [x] Guest avatar with initials in header
+- [x] Message input box visible at bottom (disabled)
+- [x] Channel and template selectors present (disabled)
+- [x] Messages scrollable independently from input box
 
 ---
 
@@ -1728,14 +2052,389 @@ StayFlow uses Supabase for PostgreSQL database and authentication.
 
 ---
 
-#### **WhatsApp Integration (Future)**
+#### **WhatsApp Integration (IMPLEMENTED)**
 
-**Planned Provider:** WhatsApp Business API
+**Status:** ✅ Active - Integrated January 2026
+
+**Provider:** WhatsApp Business API (Meta Business Platform)
 
 **Integration Strategy:**
-- Abstract through `lib/services/whatsapp.ts`
-- Support multiple providers (Twilio, MessageBird, official Meta API)
-- Design for easy provider switching
+- Direct API calls to WhatsApp Business API (No SDK - deprecated by Meta)
+- Created App on developers.facebook: "Homely - Your Preferred PMS"
+- Template-based messaging system with multi-language support
+- Dual-channel messaging: Email + WhatsApp on same trigger
+
+**API Configuration:**
+```bash
+# Environment Variables (.env.local)
+WHATSAPP_PHONE_NUMBER_ID=895346247001457
+WHATSAPP_ACCESS_TOKEN=<token>  # Stored securely in environment
+```
+
+**API Endpoint:**
+```
+POST https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages
+```
+
+**WhatsApp API Sample Request:**
+```bash
+curl -i -X POST \
+  https://graph.facebook.com/v22.0/895346247001457/messages \
+  -H 'Authorization: Bearer {ACCESS_TOKEN}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messaging_product": "whatsapp",
+    "to": "60102568834",
+    "type": "template",
+    "template": {
+      "name": "booking_confirmation",
+      "language": { "code": "ms_MY" },
+      "components": [{
+        "type": "body",
+        "parameters": [
+          { "type": "text", "text": "John Doe" },
+          { "type": "text", "text": "Sunset Villa" },
+          { "type": "text", "text": "15 Dec 2025" },
+          { "type": "text", "text": "18 Dec 2025" },
+          { "type": "text", "text": "StayFlow Properties" }
+        ]
+      }]
+    }
+  }'
+```
+
+---
+
+### **WhatsApp System Architecture**
+
+#### **1. Database Schema**
+
+**message_templates table** (WhatsApp configuration):
+```sql
+-- WhatsApp template configuration
+whatsapp_template_name VARCHAR(255)    -- Meta template name (e.g., 'booking_confirmation')
+whatsapp_language_code VARCHAR(10)     -- Language code (e.g., 'en_US', 'ms_MY')
+whatsapp_enabled BOOLEAN DEFAULT false -- Whether WhatsApp is enabled for this template
+```
+
+**message_triggers table** (Per-trigger channel toggles):
+```sql
+-- Multi-channel support
+email_enabled BOOLEAN DEFAULT true      -- Enable/disable email for this trigger
+whatsapp_enabled BOOLEAN DEFAULT false  -- Enable/disable WhatsApp for this trigger
+channels TEXT[]  -- Legacy field, kept for backwards compatibility
+```
+
+**sent_messages table** (Channel tracking):
+```sql
+-- Channel identification
+channel VARCHAR(20) DEFAULT 'email'     -- 'email' or 'whatsapp'
+
+-- WhatsApp-specific fields
+whatsapp_message_id VARCHAR(255)        -- WhatsApp API message ID
+whatsapp_status VARCHAR(50)             -- Message status from WhatsApp
+```
+
+**bookings table** (Phone number storage):
+```sql
+guest_phone VARCHAR(20)  -- WhatsApp-enabled phone number (optional)
+phone VARCHAR(20)        -- Primary phone field (fallback)
+```
+
+#### **2. Service Layer Architecture**
+
+**File Structure:**
+```
+lib/services/
+  ├── whatsapp.ts              ← WhatsApp Business API integration
+  ├── email.ts                 ← Resend email integration
+  ├── message-sender.ts        ← Dual-channel orchestration
+  ├── trigger-handler.ts       ← Event-based trigger processor
+  ├── template-parser.ts       ← Variable extraction & replacement
+  └── scheduled-message-processor.ts  ← Time-based trigger processor
+```
+
+**WhatsApp Service (`lib/services/whatsapp.ts`):**
+```typescript
+// Core function for sending WhatsApp messages
+export async function sendWhatsAppMessage({
+  to,                    // Phone number (formatted: "60123456789")
+  templateName,          // Meta template name
+  templateParams,        // Ordered array of variable values
+  languageCode = 'en_US' // Template language
+}: SendWhatsAppParams): Promise<SendWhatsAppResult>
+
+// Helper functions
+export function formatPhoneNumber(phone: string): string  // Remove +, spaces
+export function isWhatsAppConfigured(): boolean           // Check credentials
+```
+
+**Message Sender (`lib/services/message-sender.ts`):**
+```typescript
+// Dual-channel message sending
+export async function sendBookingMessage(
+  bookingId: string,
+  triggerId: string,
+  templateId: string
+): Promise<SendMessageResult>
+
+// Flow:
+// 1. Check idempotency (prevent duplicates)
+// 2. Fetch booking with properties AND organizations
+// 3. Fetch template with WhatsApp config
+// 4. Extract template variables (including organization_name)
+// 5. Send via Email (if guest_email exists)
+// 6. Send via WhatsApp (if phone exists AND template.whatsapp_enabled)
+// 7. Create separate sent_messages records per channel
+// 8. Record idempotency
+// 9. Return success if at least one channel succeeded
+```
+
+#### **3. Template Variable System**
+
+**Available Variables:**
+```typescript
+{
+  guest_name: string,           // From booking.guest_name
+  guest_email: string,          // From booking.guest_email
+  property_name: string,        // From booking.properties.name
+  check_in_date: string,        // Formatted date (e.g., "15 Dec 2025")
+  check_out_date: string,       // Formatted date
+  check_in_time: string,        // Time (e.g., "15:00")
+  check_out_time: string,       // Time (e.g., "11:00")
+  booking_reference: string,    // First 8 chars of booking.id (uppercase)
+  total_price: string,          // Formatted (e.g., "RM750.00")
+  num_guests: string,           // Number of guests
+  num_nights: string,           // Calculated nights
+  phone: string,                // Guest phone number
+  status: string,               // Booking status (uppercase)
+  organization_name: string     // From booking.organizations.name ⭐ NEW
+}
+```
+
+**Variable Mapping for WhatsApp:**
+Meta WhatsApp templates use numbered placeholders `{{1}}`, `{{2}}`, etc.
+
+Example template:
+```
+Hi {{1}},
+Your booking at {{2}} has been confirmed!
+Check-in: {{3}}
+Check-out: {{4}}
+Organization: {{5}}
+```
+
+Code mapping (ordered array):
+```typescript
+const whatsappParams = [
+  variables.guest_name,        // {{1}}
+  variables.property_name,     // {{2}}
+  variables.check_in_date,     // {{3}}
+  variables.check_out_date,    // {{4}}
+  variables.organization_name, // {{5}}
+];
+```
+
+#### **4. Multi-Language Support**
+
+**Supported Languages:**
+- `en_US` - English (United States)
+- `ms_MY` - Malay (Malaysia)
+
+**Language Configuration:**
+- Stored per template in `message_templates.whatsapp_language_code`
+- Meta Business Suite requires separate template for each language
+- Template name can be same across languages (e.g., `booking_confirmation`)
+
+**Example:**
+- Template Name: `booking_confirmation`
+- English Version: Language code `en_US`
+- Malay Version: Language code `ms_MY`
+
+#### **5. Channel Toggle System**
+
+**Per-Trigger Channel Control:**
+Each trigger can independently enable/disable channels:
+- `email_enabled` (boolean) - Default: true
+- `whatsapp_enabled` (boolean) - Default: false
+
+**UI Implementation:**
+- Trigger creation form: Checkboxes for Email/WhatsApp
+- Trigger edit form: Toggle switches for Email/WhatsApp
+- Trigger card: Edit button to access settings
+
+**Business Logic:**
+```typescript
+// Message sent via Email if:
+trigger.email_enabled === true && booking.guest_email !== null
+
+// Message sent via WhatsApp if:
+trigger.whatsapp_enabled === true
+  && (booking.guest_phone || booking.phone) !== null
+  && template.whatsapp_enabled === true
+  && template.whatsapp_template_name !== null
+```
+
+#### **6. Error Handling & Graceful Degradation**
+
+**Channel Independence:**
+- Email failure doesn't block WhatsApp
+- WhatsApp failure doesn't block Email
+- Overall success if at least one channel succeeds
+
+**Fallback Strategy:**
+- Primary phone: `booking.guest_phone`
+- Fallback phone: `booking.phone`
+- No phone: Skip WhatsApp, continue with Email
+
+**Logging:**
+```typescript
+// Detailed logging for each channel
+console.log('Skipping WhatsApp: no guest phone number')
+console.log('Skipping WhatsApp: template does not have WhatsApp enabled')
+console.log('Skipping WhatsApp: no WhatsApp template name configured')
+```
+
+**Idempotency Protection:**
+- Unique key: `${bookingId}-${triggerId}`
+- Prevents duplicate sends across both channels
+- Stored in `message_idempotency` table
+
+#### **7. Organization Data Structure**
+
+**Organizations Table:**
+```typescript
+interface Organization {
+  id: string;          // UUID
+  name: string;        // Organization name (e.g., "StayFlow Properties")
+  created_at: string;
+  updated_at: string;
+}
+```
+
+**Data Relationships:**
+```
+Organization
+├── message_templates (organization_id)
+├── message_triggers (organization_id)
+├── bookings (organization_id)
+├── properties (organization_id)
+└── sent_messages (organization_id)
+```
+
+**Database Query Pattern:**
+```typescript
+// Fetch booking with related data
+const booking = await supabase
+  .from('bookings')
+  .select(`
+    *,
+    properties (id, name),
+    organizations (id, name)  // ⭐ Organization join
+  `)
+  .eq('id', bookingId)
+  .single();
+
+// Access organization name
+const orgName = booking.organizations?.name || 'StayFlow';
+```
+
+#### **8. Implementation Files**
+
+**Created Files:**
+- `supabase/migrations/20250101100000_add_template_whatsapp_config.sql` ✅
+- `lib/types/whatsapp.ts` ✅
+- `lib/services/whatsapp.ts` ✅
+- `app/(dashboard)/messages/triggers/[id]/edit/page.tsx` ✅
+- `components/triggers/trigger-edit-form.tsx` ✅
+
+**Modified Files:**
+- `lib/types/message.ts` - Added WhatsApp fields to MessageTemplate ✅
+- `lib/types/trigger.ts` - Added email_enabled/whatsapp_enabled ✅
+- `lib/services/template-parser.ts` - Added organization_name variable ✅
+- `lib/services/message-sender.ts` - Dual-channel logic + org data ✅
+- `lib/actions/triggers.ts` - Added getTriggerById, updateTriggerFull ✅
+- `lib/actions/properties.ts` - Added getProperties function ✅
+- `lib/actions/messages.ts` - Uses getTemplates (not getMessageTemplates) ✅
+- `components/triggers/trigger-form.tsx` - Channel toggle checkboxes ✅
+- `components/triggers/trigger-card.tsx` - Edit button ✅
+
+**Implementation Fixes (January 1, 2026):**
+1. **Switch Component Issue**: Replaced all `Switch` imports with `Checkbox` in trigger-edit-form.tsx
+   - Root Cause: Switch component doesn't exist in shadcn/ui library
+   - Solution: Used Checkbox component with `onCheckedChange={(checked) => setEmailEnabled(checked as boolean)}`
+
+2. **Missing Export Issues**: Fixed function naming inconsistencies
+   - Changed `getMessageTemplates` → `getTemplates` in trigger edit page imports
+   - Added missing `getProperties()` function to `lib/actions/properties.ts`
+   - Both functions return `{ success: boolean, data?: T, error?: string }` pattern
+
+3. **Data Extraction Pattern**: Updated trigger edit page to handle result objects
+   ```typescript
+   const [triggerResult, templatesResult, propertiesResult] = await Promise.all([...]);
+   const templates = templatesResult?.data || [];
+   const properties = propertiesResult?.data || [];
+   ```
+
+4. **Next.js 15+ Params Fix**: Dynamic route params are now Promises
+   - Error: `Route "/messages/triggers/[id]/edit" used params.id. params is a Promise`
+   - Root Cause: Next.js 15+ made dynamic APIs asynchronous for better performance
+   - Solution: Updated trigger edit page to await params before use
+   ```typescript
+   export default async function EditTriggerPage({
+     params,
+   }: {
+     params: Promise<{ id: string }>;  // Changed type
+   }) {
+     const { id } = await params;  // Await the Promise first
+     const [triggerResult, ...] = await Promise.all([
+       getTriggerById(id),  // Now using extracted id
+       ...
+     ]);
+   }
+   ```
+
+5. **Channel Status Badges**: Added visual channel indicators to trigger cards
+   - Location: `components/triggers/trigger-card.tsx`
+   - Blue "Email" badge (`bg-blue-500`) when `email_enabled === true`
+   - Green "WhatsApp" badge (`bg-green-500`) when `whatsapp_enabled === true`
+   - Gray "No channels" badge when both channels disabled
+   - Provides at-a-glance visibility of active communication channels per trigger
+   - Example UI:
+     ```
+     Channels: [Email] [WhatsApp]  // Both enabled
+     Channels: [Email]              // Email only
+     Channels: [WhatsApp]           // WhatsApp only
+     Channels: [No channels]        // Neither enabled
+     ```
+
+#### **9. Testing Workflow**
+
+**Setup Requirements:**
+1. Create WhatsApp template in Meta Business Suite
+2. Update `message_templates` with WhatsApp config:
+   ```sql
+   UPDATE message_templates
+   SET whatsapp_template_name = 'booking_confirmation',
+       whatsapp_language_code = 'ms_MY',
+       whatsapp_enabled = true
+   WHERE title = 'Booking Confirmation';
+   ```
+3. Ensure booking has phone number
+
+**Test Flow:**
+1. Create/edit trigger with WhatsApp enabled
+2. Change booking status to 'confirmed'
+3. Verify both channels send successfully
+4. Check `sent_messages` for 2 records (email + WhatsApp)
+5. Verify guest receives WhatsApp message
+
+**Edge Cases Tested:**
+- ✅ Booking without phone → Email only
+- ✅ Booking without email → WhatsApp only
+- ✅ Template without WhatsApp config → Email only
+- ✅ WhatsApp API error → Email still sends
+- ✅ Duplicate trigger fire → Idempotency prevents re-send
 
 ---
 
@@ -1751,13 +2450,14 @@ StayFlow uses Supabase for PostgreSQL database and authentication.
 **Service Layer Structure:**
 ```
 lib/services/
-  ├── email.ts          ← Provider-specific (Resend)
+  ├── email.ts          ← Provider-specific (Resend) ✅ Active
+  ├── whatsapp.ts       ← Provider-specific (WhatsApp Business API) ✅ Active
   ├── payment.ts        ← Provider-specific (Stripe) - Future
-  ├── whatsapp.ts       ← Provider-specific - Future
   │
-  ├── message-sender.ts ← Provider-agnostic (uses email.ts)
+  ├── message-sender.ts ← Provider-agnostic (uses email.ts + whatsapp.ts) ✅ Dual-channel
   ├── trigger-handler.ts ← Provider-agnostic
-  └── template-parser.ts ← Provider-agnostic
+  ├── template-parser.ts ← Provider-agnostic (includes organization_name) ✅ Enhanced
+  └── scheduled-message-processor.ts ← Provider-agnostic
 ```
 
 **Testing Provider Changes:**

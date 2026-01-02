@@ -1,7 +1,10 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleTriggerButton } from './toggle-trigger-button';
 import { DeleteTriggerButton } from './delete-trigger-button';
+import { Pencil } from 'lucide-react';
+import Link from 'next/link';
 import type { TriggerWithDetails } from '@/lib/types/trigger';
 
 interface TriggerCardProps {
@@ -28,6 +31,12 @@ export function TriggerCard({ trigger }: TriggerCardProps) {
             <CardDescription>{description}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Link href={`/messages/triggers/${trigger.id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </Link>
             <ToggleTriggerButton
               triggerId={trigger.id}
               isActive={trigger.is_active}
@@ -48,6 +57,26 @@ export function TriggerCard({ trigger }: TriggerCardProps) {
           <div className="flex items-center gap-2">
             <span className="font-medium">Recipient:</span>
             <Badge variant="outline">{trigger.template?.recipient_type || 'Unknown'}</Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Channels:</span>
+            <div className="flex gap-1">
+              {trigger.email_enabled && (
+                <Badge variant="default" className="bg-blue-500">
+                  Email
+                </Badge>
+              )}
+              {trigger.whatsapp_enabled && (
+                <Badge variant="default" className="bg-green-500">
+                  WhatsApp
+                </Badge>
+              )}
+              {!trigger.email_enabled && !trigger.whatsapp_enabled && (
+                <Badge variant="outline" className="text-gray-400">
+                  No channels
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

@@ -18,6 +18,14 @@ export interface SentMessage {
   provider: string;
   provider_message_id: string | null;
 
+  // Multi-channel support
+  channel?: 'email' | 'whatsapp' | null;
+  whatsapp_message_id?: string | null;
+  whatsapp_status?: string | null;
+
+  // Future: 2-way messaging support
+  direction?: 'outgoing' | 'incoming';
+
   error_message: string | null;
   retry_count: number;
 

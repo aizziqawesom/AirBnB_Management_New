@@ -145,3 +145,30 @@ export async function deleteProperty(propertyId: string) {
   revalidatePath('/properties');
   return { success: true };
 }
+
+export async function getProperties() {
+  try {
+    const supabase = await createClient();
+    const organization = await getCurrentOrganization(supabase);
+
+    if (!organization) {
+      return { error: 'No organization found' };
+    }
+
+    const { data: properties, error } = await supabase
+      .from('properties')
+      .select('*')
+      .eq('organization_id', organization.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching properties:', error);
+      return { error: 'Failed to fetch properties' };
+    }
+
+    return { success: true, data: properties };
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    return { error: 'An unexpected error occurred' };
+  }
+}

@@ -23,6 +23,7 @@ export interface Booking {
   guest_name: string;
   phone: string;
   guest_email: string | null;
+  guest_phone?: string | null; // WhatsApp phone number
   check_in: string;
   check_out: string;
   guests: number;
@@ -32,6 +33,9 @@ export interface Booking {
   notes: string | null;
   created_at: string;
   updated_at: string;
+
+  // Future: OTA platform integration
+  ota_source?: 'direct' | 'airbnb' | 'booking_com' | 'agoda' | 'vrbo' | null;
 }
 
 export interface BookingWithProperty extends Booking {

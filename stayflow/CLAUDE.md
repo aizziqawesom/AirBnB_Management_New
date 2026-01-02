@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Next.js 15+ application built with TypeScript, using Supabase for authentication and data storage. It follows the App Router architecture and implements cookie-based authentication using `@supabase/ssr`. The UI is built with shadcn/ui components and styled with Tailwind CSS.
 
+## Please do this every time a request is entered
+
+- while exploring the code base, please check PRD.md as well as it contains vital info about the app and is our guiding document when creating this web app.
+- Then, update the PRD.md to align with the current state of the web app. Also update the PRD.md after doing all changes 
+
 ## Development Commands
 
 ```bash

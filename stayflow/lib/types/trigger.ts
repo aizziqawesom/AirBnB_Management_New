@@ -35,6 +35,13 @@ export interface MessageTrigger {
   time_reference?: TimeReference | null;
   send_time?: string | null; // HH:MM:SS format
 
+  // Multi-channel support (keep channels for backwards compatibility)
+  channels?: ('email' | 'whatsapp')[] | null;
+
+  // Per-trigger channel toggles (NEW - preferred over channels array)
+  email_enabled?: boolean | null;       // Default: true
+  whatsapp_enabled?: boolean | null;    // Default: false
+
   is_active: boolean;
   created_at: string;
   updated_at: string;

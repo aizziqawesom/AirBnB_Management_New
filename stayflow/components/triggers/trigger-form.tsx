@@ -30,6 +30,8 @@ interface TriggerFormProps {
 export function TriggerForm({ templates, properties }: TriggerFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [triggerType, setTriggerType] = useState<'event' | 'time_based'>('event');
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const router = useRouter();
 
   const form = useForm<CreateTriggerData>({
@@ -47,7 +49,11 @@ export function TriggerForm({ templates, properties }: TriggerFormProps) {
     setIsSubmitting(true);
 
     try {
-      const result = await createTrigger(values);
+      const result = await createTrigger({
+        ...values,
+        email_enabled: emailEnabled,
+        whatsapp_enabled: whatsappEnabled,
+      } as any);
 
       if (result.success) {
         toast.success('Trigger created successfully');
@@ -161,6 +167,45 @@ export function TriggerForm({ templates, properties }: TriggerFormProps) {
                 </FormItem>
               )}
             />
+
+            {/* Channel Toggles */}
+            <div className="space-y-4 border rounded-lg p-4">
+              <h3 className="font-medium text-sm">Message Channels</h3>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label htmlFor="email-enabled" className="text-sm font-medium">
+                    Send via Email
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Send messages to guest email address
+                  </p>
+                </div>
+                <Checkbox
+                  id="email-enabled"
+                  checked={emailEnabled}
+                  onCheckedChange={(checked) => setEmailEnabled(checked as boolean)}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label htmlFor="whatsapp-enabled" className="text-sm font-medium">
+                    Send via WhatsApp
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Send messages to guest phone number
+                  </p>
+                </div>
+                <Checkbox
+                  id="whatsapp-enabled"
+                  checked={whatsappEnabled}
+                  onCheckedChange={(checked) => setWhatsappEnabled(checked as boolean)}
+                  disabled={isSubmitting}
+                />
+              </div>
+            </div>
 
             {/* Event-Based Fields */}
             {triggerType === 'event' && (

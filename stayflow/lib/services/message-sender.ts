@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from './email';
+import { sendWhatsAppMessage, formatPhoneNumber } from './whatsapp';
 import { BookingEmailTemplate } from '@/components/email/booking-email-template';
 import {
   extractTemplateVariables,
@@ -58,6 +59,10 @@ export async function sendBookingMessage(
         properties (
           id,
           name
+        ),
+        organizations (
+          id,
+          name
         )
       `
       )
@@ -72,19 +77,22 @@ export async function sendBookingMessage(
       };
     }
 
-    // Check if guest email is available
-    if (!booking.guest_email) {
-      console.log(`No guest email for booking ${bookingId}, skipping message`);
+    // Get phone number (prefer guest_phone, fallback to phone)
+    const phoneNumber = booking.guest_phone || booking.phone;
+
+    // Check if at least one contact method is available
+    if (!booking.guest_email && !phoneNumber) {
+      console.log(`No contact info for booking ${bookingId}, skipping message`);
       return {
         success: false,
-        error: 'Guest email not provided',
+        error: 'No guest email or phone provided',
       };
     }
 
-    // 3. Fetch message template
+    // 3. Fetch message template with WhatsApp configuration
     const { data: template, error: templateError } = await supabase
       .from('message_templates')
-      .select('id, title, template')
+      .select('id, title, template, whatsapp_template_name, whatsapp_language_code, whatsapp_enabled')
       .eq('id', templateId)
       .single();
 
@@ -135,69 +143,131 @@ export async function sendBookingMessage(
       };
     }
 
-    // 6. Send email via Resend using React template
-    const emailResult = await sendEmail({
-      to: booking.guest_email,
-      subject,
-      react: BookingEmailTemplate({
-        guestName: variables.guest_name,
-        propertyName: variables.property_name,
-        checkInDate: variables.check_in_date,
-        checkOutDate: variables.check_out_date,
-        bookingReference: variables.booking_reference,
-        totalPrice: variables.total_price,
-        numGuests: variables.num_guests,
-        status: variables.status,
-      }),
-    });
+    // 6. Send via both channels (Email + WhatsApp)
+    let emailResult: { success: boolean; error?: string; messageId?: string } = { success: false };
+    let whatsappResult: { success: boolean; error?: string; messageId?: string } = { success: false };
 
-    // 7. Update sent_messages record with result
-    if (emailResult.success) {
+    // 6a. Send email if guest_email is available
+    if (booking.guest_email) {
+      emailResult = await sendEmail({
+        to: booking.guest_email,
+        subject,
+        react: BookingEmailTemplate({
+          guestName: variables.guest_name,
+          propertyName: variables.property_name,
+          checkInDate: variables.check_in_date,
+          checkOutDate: variables.check_out_date,
+          bookingReference: variables.booking_reference,
+          totalPrice: variables.total_price,
+          numGuests: variables.num_guests,
+          status: variables.status,
+        }),
+      });
+    } else {
+      console.log('Skipping email: no guest email address');
+    }
+
+    // 6b. Send WhatsApp if phone number is available AND template has WhatsApp enabled
+    if (phoneNumber && template.whatsapp_enabled && template.whatsapp_template_name) {
+      // Map variables to ordered array for WhatsApp API
+      const whatsappParams = [
+        variables.guest_name,
+        variables.property_name,
+        variables.check_in_date,
+        variables.check_out_date,
+        variables.organization_name,
+      ];
+
+      whatsappResult = await sendWhatsAppMessage({
+        to: formatPhoneNumber(phoneNumber),
+        templateName: template.whatsapp_template_name,
+        templateParams: whatsappParams,
+        languageCode: template.whatsapp_language_code || 'en_US',
+      });
+    } else {
+      if (!phoneNumber) {
+        console.log('Skipping WhatsApp: no guest phone number');
+      } else if (!template.whatsapp_enabled) {
+        console.log('Skipping WhatsApp: template does not have WhatsApp enabled');
+      } else if (!template.whatsapp_template_name) {
+        console.log('Skipping WhatsApp: no WhatsApp template name configured');
+      }
+    }
+
+    // 7. Update sent_messages records based on results
+    // Update the email record (original sent_message)
+    if (booking.guest_email && emailResult.success) {
       await supabase
         .from('sent_messages')
         .update({
           status: 'sent',
           provider_message_id: emailResult.messageId,
           sent_at: new Date().toISOString(),
+          channel: 'email',
         })
         .eq('id', sentMessage.id);
-
-      // 8. Record idempotency to prevent duplicate sends
-      await supabase.from('message_idempotency').insert({
-        organization_id: booking.organization_id,
-        booking_id: bookingId,
-        trigger_id: triggerId,
-        idempotency_key: idempotencyKey,
-        sent_message_id: sentMessage.id,
-      });
-
-      console.log(
-        `Successfully sent email to ${booking.guest_email} for booking ${bookingId}`
-      );
-
-      return {
-        success: true,
-        sentMessageId: sentMessage.id,
-      };
-    } else {
-      // Update with failure status
+    } else if (booking.guest_email) {
       await supabase
         .from('sent_messages')
         .update({
           status: 'failed',
           error_message: emailResult.error,
           retry_count: 1,
+          channel: 'email',
         })
         .eq('id', sentMessage.id);
+    }
 
-      console.error(
-        `Failed to send email for booking ${bookingId}:`,
-        emailResult.error
-      );
+    // Create separate WhatsApp record if sent successfully
+    if (phoneNumber && whatsappResult.success) {
+      await supabase.from('sent_messages').insert({
+        organization_id: booking.organization_id,
+        booking_id: bookingId,
+        trigger_id: triggerId,
+        template_id: templateId,
+        recipient_email: booking.guest_email || '',
+        recipient_name: booking.guest_name,
+        subject: 'WhatsApp: ' + subject,
+        body: messageBody,
+        status: 'sent',
+        provider: 'whatsapp',
+        channel: 'whatsapp',
+        whatsapp_message_id: whatsappResult.messageId,
+        whatsapp_status: 'sent',
+        sent_at: new Date().toISOString(),
+      });
+    } else if (phoneNumber && whatsappResult.error) {
+      // Log WhatsApp failure but don't create failed record
+      console.error(`WhatsApp send failed for booking ${bookingId}:`, whatsappResult.error);
+    }
 
+    // 8. Record idempotency to prevent duplicate sends
+    await supabase.from('message_idempotency').insert({
+      organization_id: booking.organization_id,
+      booking_id: bookingId,
+      trigger_id: triggerId,
+      idempotency_key: idempotencyKey,
+      sent_message_id: sentMessage.id,
+    });
+
+    // 9. Determine overall success (at least one channel succeeded)
+    const overallSuccess = emailResult.success || whatsappResult.success;
+
+    console.log(
+      `Message sending complete for booking ${bookingId}: ` +
+      `Email: ${emailResult.success ? 'sent' : (booking.guest_email ? 'failed' : 'skipped')}, ` +
+      `WhatsApp: ${whatsappResult.success ? 'sent' : (phoneNumber ? 'failed' : 'skipped')}`
+    );
+
+    if (overallSuccess) {
+      return {
+        success: true,
+        sentMessageId: sentMessage.id,
+      };
+    } else {
       return {
         success: false,
-        error: emailResult.error,
+        error: emailResult.error || whatsappResult.error || 'Both channels failed',
         sentMessageId: sentMessage.id,
       };
     }

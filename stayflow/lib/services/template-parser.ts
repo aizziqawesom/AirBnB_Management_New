@@ -10,6 +10,9 @@ export function extractTemplateVariables(
     properties?: {
       name: string;
     };
+    organizations?: {
+      name: string;
+    };
   }
 ): Record<string, string> {
   // Format dates
@@ -49,6 +52,7 @@ export function extractTemplateVariables(
     num_nights: nights.toString(),
     phone: booking.phone,
     status: booking.status.replace('_', ' ').toUpperCase(),
+    organization_name: booking.organizations?.name || 'StayFlow',
   };
 }
 

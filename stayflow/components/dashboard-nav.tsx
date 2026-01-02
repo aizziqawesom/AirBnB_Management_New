@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -114,10 +115,21 @@ export function DashboardNav({
         <div className="flex h-full flex-col">
           {/* Logo/Brand */}
           <div className="border-b border-border px-6 py-4">
-            <h2 className="text-xl font-bold text-foreground">StayFlow</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {organization.name}
-            </p>
+            <div className="flex items-center gap-3">
+              <Image
+                src="/homely-logo.png"
+                alt="Homely"
+                width={40}
+                height={40}
+                className="rounded-lg"
+              />
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Homely</h2>
+                <p className="text-xs text-muted-foreground">
+                  {organization.name}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Navigation */}
@@ -146,11 +158,20 @@ export function DashboardNav({
       {/* Mobile Header */}
       <header className="fixed left-0 right-0 top-0 z-20 border-b border-border bg-background lg:hidden">
         <div className="flex h-16 items-center justify-between px-4">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">StayFlow</h2>
-            <p className="text-xs text-muted-foreground">
-              {organization.name}
-            </p>
+          <div className="flex items-center gap-2">
+            <Image
+              src="/homely-logo.png"
+              alt="Homely"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Homely</h2>
+              <p className="text-xs text-muted-foreground">
+                {organization.name}
+              </p>
+            </div>
           </div>
 
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>

@@ -25,7 +25,7 @@ export function BookingEmailTemplate({
     <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: '600px', margin: '0 auto' }}>
       <div style={{ backgroundColor: '#f9fafb', padding: '40px 20px', textAlign: 'center' }}>
         <h1 style={{ color: '#111827', fontSize: '28px', marginBottom: '10px' }}>
-          StayFlow
+          Homely
         </h1>
         <p style={{ color: '#6b7280', fontSize: '14px' }}>Property Management</p>
       </div>
@@ -92,13 +92,13 @@ export function BookingEmailTemplate({
 
         <p style={{ color: '#6b7280', fontSize: '14px', lineHeight: '1.6', marginTop: '15px' }}>
           Best regards,<br />
-          <strong>The StayFlow Team</strong>
+          <strong>The Homely Team</strong>
         </p>
       </div>
 
       <div style={{ backgroundColor: '#f9fafb', padding: '20px', textAlign: 'center' }}>
         <p style={{ color: '#9ca3af', fontSize: '12px', margin: '0' }}>
-          This is an automated message from StayFlow Property Management
+          This is an automated message from Homely Property Management
         </p>
       </div>
     </div>

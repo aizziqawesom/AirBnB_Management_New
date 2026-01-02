@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export default async function Home() {
@@ -19,8 +20,17 @@ export default async function Home() {
     <main className="min-h-screen flex flex-col items-center justify-center p-6">
       <div className="max-w-2xl text-center space-y-8">
         <div className="space-y-4">
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/homely-logo.png"
+              alt="Homely"
+              width={100}
+              height={100}
+              className="rounded-2xl"
+            />
+          </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-            Welcome to StayFlow
+            Welcome to Homely
           </h1>
           <p className="text-xl text-muted-foreground">
             Manage your Airbnb properties with ease

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format, addDays, subDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalendarGrid } from './calendar-grid';
 import { CalendarWeekView } from './calendar-week-view';
 import { CalendarDayView } from './calendar-day-view';
+import { CalendarPropertyView } from './calendar-property-view';
 import { getBookingsForMonth } from '@/lib/actions/calendar';
 import type { BookingWithProperty } from '@/lib/types/booking';
 import type { Property } from '@/lib/types/property';
 
-type CalendarView = 'month' | 'week' | 'day';
+type CalendarView = 'month' | 'week' | 'day' | 'properties';
 
 interface CalendarViewClientProps {
   initialBookings: BookingWithProperty[];
@@ -32,7 +33,8 @@ export function CalendarViewClient({
 }: CalendarViewClientProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
-  const [bookings, setBookings] = useState<BookingWithProperty[]>(initialBookings);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [allBookings, setAllBookings] = useState<BookingWithProperty[]>(initialBookings);
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<CalendarView>('month');
 
@@ -46,7 +48,7 @@ export function CalendarViewClient({
           currentDate.getMonth(),
           selectedProperty
         );
-        setBookings(data);
+        setAllBookings(data);
       } catch (error) {
         console.error('Error fetching bookings:', error);
       } finally {
@@ -57,8 +59,14 @@ export function CalendarViewClient({
     fetchBookings();
   }, [currentDate, selectedProperty]);
 
+  // Filter bookings by status (client-side)
+  const bookings = useMemo(() => {
+    if (selectedStatus === 'all') return allBookings;
+    return allBookings.filter(booking => booking.status === selectedStatus);
+  }, [allBookings, selectedStatus]);
+
   const handlePrevious = () => {
-    if (view === 'month') {
+    if (view === 'month' || view === 'properties') {
       setCurrentDate(
         new Date(currentDate.getFullYear(), currentDate.getMonth() - 1)
       );
@@ -70,7 +78,7 @@ export function CalendarViewClient({
   };
 
   const handleNext = () => {
-    if (view === 'month') {
+    if (view === 'month' || view === 'properties') {
       setCurrentDate(
         new Date(currentDate.getFullYear(), currentDate.getMonth() + 1)
       );
@@ -86,7 +94,7 @@ export function CalendarViewClient({
   };
 
   const getDateRangeLabel = () => {
-    if (view === 'month') {
+    if (view === 'month' || view === 'properties') {
       return format(currentDate, 'MMMM yyyy');
     } else if (view === 'week') {
       return `Week of ${format(currentDate, 'MMM d, yyyy')}`;
@@ -117,19 +125,37 @@ export function CalendarViewClient({
             </Button>
           </div>
 
-          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Properties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Properties</SelectItem>
-              {properties.map(property => (
-                <SelectItem key={property.id} value={property.id}>
-                  {property.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Properties" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                {properties.map(property => (
+                  <SelectItem key={property.id} value={property.id}>
+                    {property.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="checked_in">Checked In</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="checked_out">Checked Out</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="no_show">No Show</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* View Switcher */}
@@ -138,6 +164,7 @@ export function CalendarViewClient({
             <TabsTrigger value="month">Month</TabsTrigger>
             <TabsTrigger value="week">Week</TabsTrigger>
             <TabsTrigger value="day">Day</TabsTrigger>
+            <TabsTrigger value="properties">Properties</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -161,6 +188,14 @@ export function CalendarViewClient({
         <CalendarDayView
           currentDate={currentDate}
           bookings={bookings}
+          isLoading={isLoading}
+        />
+      )}
+      {view === 'properties' && (
+        <CalendarPropertyView
+          currentDate={currentDate}
+          bookings={bookings}
+          properties={properties}
           isLoading={isLoading}
         />
       )}

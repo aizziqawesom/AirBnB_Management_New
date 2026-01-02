@@ -9,7 +9,7 @@ import {
   templateToHtml,
 } from './template-parser';
 import type { Booking } from '@/lib/types/booking';
-
+11
 export interface SendMessageResult {
   success: boolean;
   error?: string;

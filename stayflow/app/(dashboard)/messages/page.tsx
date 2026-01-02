@@ -1,6 +1,9 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { InboxFilters } from '@/components/inbox/inbox-filters';
 import { InboxConversationList } from '@/components/inbox/inbox-conversation-list';
 import { InboxChatView } from '@/components/inbox/inbox-chat-view';
@@ -134,6 +137,12 @@ export default function MessagesPage() {
                 <h1 className="text-2xl font-bold">Inbox</h1>
                 <p className="text-sm text-muted-foreground">View your automated message conversations</p>
               </div>
+              <Button variant="outline" size="icon" asChild>
+                <Link href="/messages/settings">
+                  <Settings className="h-5 w-5" />
+                  <span className="sr-only">Settings</span>
+                </Link>
+              </Button>
             </div>
 
             {/* Stats - compact single row */}
